@@ -35,7 +35,7 @@
 <script>
     document.getElementById('myForm').addEventListener('submit', async function (event) {
         event.preventDefault();
-        
+
         const photoUrl = await storePhotoInS3()
         const formObject = getFormObject(event, photoUrl)
         await sendFormToProcessAPI(formObject)
@@ -89,27 +89,37 @@
     }
 
     async function getPresignedResponse(file) {
-        const presignedResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/getPresignedURL", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileName: file.name, fileType: file.type })
-        });
+        try {
+            const presignedResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/getPresignedURL", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fileName: file.name, fileType: file.type })
+            });
 
-        if (!presignedResponse.ok) {
-            throw new Error("Failed to get pre-signed URL");
+            if (!presignedResponse.ok) {
+                throw new Error("Failed to get pre-signed URL");
+            }
+            return await presignedResponse.json();
         }
-        return await presignedResponse.json();
+        catch (e) {
+            throw new Error(e)
+        }
     }
 
     async function uploadPhotoToS3(file, uploadUrl) {     //Upload the file to S3 using the pre-signed URL
-        const uploadResponse = await fetch(uploadUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": file.type }
-        });
+        try {
+            const uploadResponse = await fetch(uploadUrl, {
+                method: "PUT",
+                body: file,
+                headers: { "Content-Type": file.type }
+            });
 
-        if (!uploadResponse.ok) {
-            throw new Error("File upload failed");
+            if (!uploadResponse.ok) {
+                throw new Error("File upload failed");
+            }
+        }
+        catch (e) {
+            throw new Error(e)
         }
     }
 
