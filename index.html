@@ -3,7 +3,7 @@
     <input type="email" name="email" placeholder="Your Email" />
     <input type="text" name="phone" placeholder="Your Phone Number" />
     <input type="text" name="address" placeholder="Your Address" />
-    <input type="text" name="Church" placeholder="Church You Attend" />
+    <input type="text" name="Church" placeholder="Church You Attend (Enter N/A if you're unafiiliated)" />
 
     <label>Your Skills:</label>
     <div id="skill-container">
@@ -24,13 +24,22 @@
     <input type="checkbox" name="Availability" value="Saturday" /> Saturday
 
     <label for="photo">Upload Your Photo:</label>
-    <input type="file" name="photo" id="photo" accept="image/*" />
+    <input type="file" name="photo" id="photo" accept="image/*" required />
 
     <button type="submit">Submit</button>
+    <p id="loading-message" style="display: none; color: blue;">Processing... Please wait.</p>
+
 </form>
 
 
 <script>
+    document.getElementById('myForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        
+        const photoUrl = await storePhotoInS3()
+        const formObject = getFormObject(event, photoUrl)
+        await sendFormToProcessAPI(formObject)
+    });
 
     document.getElementById('add-skill').addEventListener('click', function () {
         const skillInput = document.getElementById('skill-input');
@@ -51,16 +60,9 @@
         }
     });
 
-    document.getElementById('myForm').addEventListener('submit', async function (event) {
-        event.preventDefault();
-
+    function getFormObject(event, photoUrl) {
         const formData = new FormData(event.target);
         const formObject = {}
-
-        const skills = [];
-        document.querySelectorAll('#skill-list li').forEach(skill => {
-            skills.push(skill.textContent.trim())
-        });
 
         const contactInfo = {
             email: formData.get('email'),
@@ -69,50 +71,49 @@
         };
 
         formObject.Name = formData.get('Name')
-        formObject.Skills = skills
+        formObject.Skills = getSkillsList()
         formObject.Church = formData.get('Church')
         formObject.Availability = formData.getAll('Availability')//needs to be a str not an array
         formObject.ContactInfo = contactInfo
+        formObject.PhotoURL = photoUrl
 
-        for (let [key, value] of Object.entries(formObject)) {
-            console.log(key, value);  // Logs each form field and its value
+        return formObject
+    }
+
+    function getSkillsList() {
+        const skills = [];
+        document.querySelectorAll('#skill-list li').forEach(skill => {
+            skills.push(skill.textContent.trim())
+        });
+        return skills
+    }
+
+    async function getPresignedResponse(file) {
+        const presignedResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/getPresignedURL", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileName: file.name, fileType: file.type })
+        });
+
+        if (!presignedResponse.ok) {
+            throw new Error("Failed to get pre-signed URL");
         }
+        return await presignedResponse.json();
+    }
 
-        const fileInput = document.getElementById('photo');
-        if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            try {
-                // Step 1: Get a pre-signed URL from your API Gateway/Lambda
-                const presignedResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/getPresignedURL", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({fileName: file.name, fileType: file.type })
-                });
-                if (!presignedResponse.ok) {
-                    throw new Error("Failed to get pre-signed URL");
-                }
+    async function uploadPhotoToS3(file, uploadUrl) {     //Upload the file to S3 using the pre-signed URL
+        const uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": file.type }
+        });
 
-                const { uploadUrl, fileUrl } = await presignedResponse.json();
-
-                // Step 2: Upload the file to S3 using the pre-signed URL
-                const uploadResponse = await fetch(uploadUrl, {
-                    method: "PUT",
-                    body: file,
-                    headers: { "Content-Type": file.type }
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error("File upload failed");
-                }
-
-                // Save the file URL in the formObject
-                formObject.PhotoURL = fileUrl;
-            } catch (error) {
-                console.error("File upload error:", error);
-                alert("Failed to upload photo.");
-                return;
-            }
+        if (!uploadResponse.ok) {
+            throw new Error("File upload failed");
         }
+    }
+
+    async function sendFormToProcessAPI(formObject) {
 
         const processFormApiUrl = "https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/processFormsToRDS";
         try {
@@ -131,11 +132,22 @@
                 const responseText = await apiResponse.text();
                 console.error("API call failed with status:", apiResponse.status);
                 console.error("Response body:", responseText);
-                alert(`Error submitting form. Status: ${apiResponse.status}`);
             }
         } catch (error) {
             console.error("Submission error: ", error);
-            alert("There was an error submitting the form.");
         }
-    });
+    }
+
+    async function storePhotoInS3() {
+        const fileInput = document.getElementById('photo');
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const presignedResponse = await getPresignedResponse(file)
+            await uploadPhotoToS3(file, presignedResponse.uploadUrl)
+            return presignedResponse.fileUrl
+        }
+        else {
+            throw new Error("Attached Photo Not Recognized.")
+        }
+    }
 </script>
