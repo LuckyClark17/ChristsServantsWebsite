@@ -156,9 +156,27 @@
         document.getElementById('myForm').addEventListener('submit', async function (event) {
             event.preventDefault();
 
-            const photoUrl = await storePhotoInS3()
-            const formObject = getFormObject(event, photoUrl)
-            await sendFormToProcessAPI(formObject)
+            let submitButton = document.querySelector("button[type='submit']");
+            submitButton.disabled = true; // Disables the button
+            submitButton.textContent = "Processing..."; // Changes button text
+            submitButton.classList.add('disabled-button');
+
+
+            try {
+                const photoUrl = await storePhotoInS3();
+                const formObject = getFormObject(event, photoUrl);
+                await sendFormToProcessAPI(formObject);
+
+                // Redirect to a confirmation page after successful submission
+                window.location.href = "thank-you.html";
+            } catch (error) {
+                console.error("Error submitting form:", error);
+                submitButton.disabled = false; // Re-enable button if an error occurs
+                submitButton.textContent = "Submit"; // Reset button text
+                submitButton.classList.remove('disabled-button'); // Remove the disabled visual effect
+                alert("An error occurred. Please try again.");
+                
+            }
         });
 
         document.getElementById('add-skill').addEventListener('click', function () {
