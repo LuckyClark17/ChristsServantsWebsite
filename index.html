@@ -120,7 +120,7 @@
 <body>
     <form id="myForm" enctype="multipart/form-data">
         <h2 style="text-align: center;">Volunteer Form</h2>
-        <input type="text" name="Name" placeholder="Your Name" required />
+        <input type="text" name="name" placeholder="Your Name" required />
         <input type="email" name="email" placeholder="Your Email" />
         <input type="text" name="phone" placeholder="Your Phone Number" />
         <input type="text" name="address" placeholder="Your Address" />
@@ -175,7 +175,6 @@
                 submitButton.textContent = "Submit"; // Reset button text
                 submitButton.classList.remove('disabled-button'); // Remove the disabled visual effect
                 alert("An error occurred. Please try again.");
-                
             }
         });
 
@@ -208,7 +207,7 @@
                 address: formData.get('address')
             };
 
-            formObject.Name = formData.get('Name')
+            formObject.Name = formData.get('name')
             formObject.Skills = getSkillsList()
             formObject.Church = formData.get('Church')
             formObject.Availability = formData.getAll('Availability')//needs to be a str not an array
@@ -239,7 +238,8 @@
                 return await presignedResponse.json();
             }
             catch (e) {
-                throw new Error(e)
+                console.error("Error fetching pre-signed URL:", e);
+                throw e;
             }
         }
 
@@ -256,7 +256,8 @@
                 }
             }
             catch (e) {
-                throw new Error(e)
+                console.error("Error uploading photo to s3");
+                throw e;
             }
         }
 
@@ -278,10 +279,12 @@
                     const responseText = await apiResponse.text();
                     console.error("API call failed with status:", apiResponse.status);
                     console.error("Response body:", responseText);
+                    throw new Error("API call failed with status:" + apiResponse.status);
                 }
             }
             catch (error) {
                 console.error("Submission error: ", error);
+                throw error
             }
         }
 
