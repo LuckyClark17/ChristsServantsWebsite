@@ -188,7 +188,6 @@
                 const formObject = getFormObject(event, photoUrl);
                 await sendFormToProcessAPI(formObject);
 
-                // Redirect to a confirmation page after successful submission
                 window.location.href = "thank-you.html";
             } catch (error) {
                 console.error("Error submitting form:", error);
