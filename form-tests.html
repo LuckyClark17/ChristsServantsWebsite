@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Christ's Servants Volunteer Form</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            margin: 0;
+            min-height: 100vh;
+            /* Allow page to expand naturally */
+            overflow-y: auto;
+            /* Enables scrolling */
+            padding: 20px 0;
+            /* Adds some spacing to prevent top cutoff */
+        }
+
+        form {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            width: 400px;
+            /* Increase width for better balance */
+        }
+
+        input,
+        button,
+        select {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            background: #007BFF;
+            color: white;
+            cursor: pointer;
+            border: none;
+            font-size: 18px;
+            /* Bigger font for better readability */
+            padding: 12px;
+            /* More padding for a better feel */
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        label {
+            font-weight: bold;
+            margin-top: 10px;
+            display: block;
+        }
+
+        #skill-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #skill-input {
+            flex-grow: 1;
+            /* Makes input stretch properly */
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            background: #f1f1f1;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        .file-input {
+            display: block;
+            margin-top: 10px;
+        }
+
+        .availability-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .availability-container label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            /* Ensures proper spacing between checkbox and text */
+            font-size: 16px;
+            width: fit-content;
+            /* Ensures labels do not stretch */
+        }
+
+        .availability-container input {
+            width: auto;
+            /* Keeps checkboxes small */
+        }
+    </style>
+</head>
+
+<body>
+    <form id="myForm" enctype="multipart/form-data">
+        <h2 style="text-align: center;">Volunteer Form</h2>
+        <input type="text" name="name" placeholder="Your Name"/>
+        <input type="email" name="email" placeholder="Your Email" />
+        <input type="text" name="phone" placeholder="Your Phone Number" />
+        <input type="text" name="address" placeholder="Your Address" />
+        <input type="text" name="Church" placeholder="Church You Attend (Enter N/A if unafilliated)" />
+
+        <label>Your Skills:</label>
+        <div id="skill-container">
+            <input type="text" id="skill-input" placeholder="Enter skill" />
+            <button type="button" id="add-skill">Add</button>
+        </div>
+        <ul id="skill-list"></ul>
+
+        <label>Availability:</label>
+        <div class="availability-container">
+            <label><input type="checkbox" name="Availability" value="Sunday"> Sunday</label>
+            <label><input type="checkbox" name="Availability" value="Monday"> Monday</label>
+            <label><input type="checkbox" name="Availability" value="Tuesday"> Tuesday</label>
+            <label><input type="checkbox" name="Availability" value="Wednesday"> Wednesday</label>
+            <label><input type="checkbox" name="Availability" value="Thursday"> Thursday</label>
+            <label><input type="checkbox" name="Availability" value="Friday"> Friday</label>
+            <label><input type="checkbox" name="Availability" value="Saturday"> Saturday</label>
+        </div>
+
+        <label for="photo">Upload Your Photo:</label>
+        <input type="file" name="photo" id="photo" accept="image/*" />
+
+        <div class="g-recaptcha" data-sitekey="6LfI0E0rAAAAAG9wyD3ccCw6RHZHF2VC8A-guUIh"></div>
+
+        <button type="submit">Submit</button>
+        <p id="loading-message" style="display: none; color: blue;">Processing... Please wait.</p>
+    </form>
+
+
+    <script>
+        document.getElementById('myForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const recaptchaResponse = grecaptcha.getResponse(); //returns str ID
+            if (!recaptchaResponse) { //checks if token is an empty string (if they havent completed it)
+                alert("Please complete the reCAPTCHA to submit the form.")
+                return
+            }
+            try{
+                const verification = await verifyRecaptchaToken(recaptchaResponse);
+                if (!verification.success) {
+                    alert("reCAPTCHA verification failed. Please try again.")
+                    return;
+                }
+            }
+            catch(error) {
+                alert("reCAPTCHA verification failed. Please try again.");
+                throw error;
+            }
+
+            const submitButton = document.querySelector("button[type='submit']");
+            submitButton.disabled = true; // Disables the button
+            submitButton.textContent = "Processing..."; // Changes button text
+            submitButton.classList.add('disabled-button');
+
+
+
+            try {
+                const photoUrl = await storePhotoInS3();
+                const formObject = getFormObject(event, photoUrl);
+                await sendFormToProcessAPI(formObject);
+
+                window.location.href = "thank-you.html";
+            } catch (error) {
+                console.error("Error submitting form:", error);
+                submitButton.disabled = false; // Re-enable button if an error occurs
+                submitButton.textContent = "Submit"; // Reset button text
+                submitButton.classList.remove('disabled-button'); // Remove the disabled visual effect
+                alert("An error occurred. Please try again.");
+            }
+        });
+
+        document.getElementById('add-skill').addEventListener('click', function () {
+            const skillInput = document.getElementById('skill-input');
+            const skillValue = skillInput.value.trim();
+
+            if (skillValue) {
+                // Create new list item for the skill
+                const skillItem = document.createElement('li');
+                skillItem.textContent = skillValue;
+
+                // Append the skill to the skill list
+                document.getElementById('skill-list').appendChild(skillItem);
+
+                // Clear the input field
+                skillInput.value = '';
+            } else {
+                alert("Please enter a skill before adding.");
+            }
+        });
+
+        function getFormObject(event, photoUrl) {
+            const formData = new FormData(event.target);
+            const formObject = {}
+
+            const contactInfo = {
+                email: "test@gmail.com ",
+                phone: formData.get('111-222-3333'),
+                address: formData.get('123 Street')
+            };
+
+            formObject.Name = "Ben Bigger"
+            formObject.Skills = ["Hello", "Ben"]
+            formObject.Church = "Catholic Church"
+            formObject.Availability = "Sunday"//needs to be a str not an array
+            formObject.ContactInfo = contactInfo
+            formObject.PhotoURL = "https://example.com/photo.jpg"
+
+            return formObject
+        }
+
+        function getSkillsList() {
+            const skills = [];
+            document.querySelectorAll('#skill-list li').forEach(skill => {
+                skills.push(skill.textContent.trim())
+            });
+            return skills
+        }
+
+        async function getPresignedResponse(file) {
+            try {
+                const presignedResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/getPresignedURL", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ fileName: file.name, fileType: file.type })
+                });
+                if (!presignedResponse.ok) {
+                    throw new Error("Failed to get pre-signed URL");
+                }
+                return await presignedResponse.json();
+            }
+            catch (e) {
+                console.error("Error fetching pre-signed URL:", e);
+                throw e;
+            }
+        }
+
+        async function verifyRecaptchaToken(token) {
+            try {
+                const verifyResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/VerifyReCAPTCHAToken", {
+                    "method": "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ token })
+                });
+                if (!verifyResponse.ok) {
+                    throw new Error("Failed to Verify Token");
+                }
+                return await verifyResponse.json();
+            }
+            catch (e) {
+                console.error("Failed to Verify Token");
+                throw e;
+            }
+        }
+
+        async function uploadPhotoToS3(file, uploadUrl) {     //Upload the file to S3 using the pre-signed URL
+            try {
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: "PUT",
+                    body: file,
+                    headers: { "Content-Type": file.type }
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error("File upload failed");
+                }
+            }
+            catch (e) {
+                console.error("Error uploading photo to s3");
+                throw e;
+            }
+        }
+
+        async function sendFormToProcessAPI(formObject) {
+            const processFormApiUrl = "https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/processFormsToRDS";
+            try {
+                const apiResponse = await fetch(processFormApiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",  // Set content type to JSON
+                    },
+                    body: JSON.stringify(formObject),  // Send the form data as a JSON object
+                });
+
+                if (!apiResponse.ok) {
+                    const responseText = await apiResponse.text();
+                    console.error("API call failed with status:", apiResponse.status);
+                    console.error("Response body:", responseText);
+                    throw new Error("API call failed with status:" + apiResponse.status);
+                }
+            }
+            catch (error) {
+                console.error("Submission error: ", error);
+                throw error
+            }
+        }
+
+        async function storePhotoInS3() {
+            const fileInput = document.getElementById('photo');
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const presignedResponse = await getPresignedResponse(file)
+                await uploadPhotoToS3(file, presignedResponse.uploadUrl)
+                return presignedResponse.fileUrl
+            }
+            else {
+                throw new Error("Attached Photo Not Recognized.")
+            }
+        }
+    </script>
