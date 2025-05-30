@@ -188,7 +188,7 @@
                 const formObject = getFormObject(event, photoUrl);
                 await sendFormToProcessAPI(formObject);
 
-                window.location.href = "thank-you.html";
+                //window.location.href = "thank-you.html";
             } catch (error) {
                 console.error("Error submitting form:", error);
                 submitButton.disabled = false; // Re-enable button if an error occurs
