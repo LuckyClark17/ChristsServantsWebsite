@@ -190,7 +190,7 @@
                 submitButton.disabled = false; // Re-enable button if an error occurs
                 submitButton.textContent = "Submit"; // Reset button text
                 submitButton.classList.remove('disabled-button'); // Remove the disabled visual effect
-
+                console.log("submission completed. redirecting to thank you page")
                 //window.location.href = "thank-you.html";
             } catch (error) {
                 console.error("Error submitting form:", error);
@@ -221,6 +221,7 @@
         });
 
         function getFormObject(event, photoUrl) {
+            console.log("creating form object")
             const formData = new FormData(event.target);
             const formObject = {}
 
@@ -249,6 +250,7 @@
         }
 
         async function getPresignedResponse(file) {
+            console.log("getting presigned URL")
             try {
                 const presignedResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/getPresignedURL", {
                     method: "POST",
@@ -290,6 +292,7 @@
         }
 
         async function uploadPhotoToS3(file, uploadUrl) {     //Upload the file to S3 using the pre-signed URL
+            console.log("uploading photo to s3")
             try {
                 const uploadResponse = await fetch(uploadUrl, {
                     method: "PUT",
@@ -308,6 +311,7 @@
         }
 
         async function sendFormToProcessAPI(formObject) {
+            console.log("sending form to db")
             const processFormApiUrl = "https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/processFormsToRDS";
             try {
                 const apiResponse = await fetch(processFormApiUrl, {
