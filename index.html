@@ -187,6 +187,9 @@
                 const photoUrl = await storePhotoInS3();
                 const formObject = getFormObject(event, photoUrl);
                 await sendFormToProcessAPI(formObject);
+                submitButton.disabled = false; // Re-enable button if an error occurs
+                submitButton.textContent = "Submit"; // Reset button text
+                submitButton.classList.remove('disabled-button'); // Remove the disabled visual effect
 
                 //window.location.href = "thank-you.html";
             } catch (error) {
