@@ -279,7 +279,7 @@
                 
                 if (!verifyResponse.ok) {
                     const errorJson = await verifyResponse.json()
-                    throw new Error(`Verification Response Recieved, but failed. Status: ${verifyResponse.status}, Body: ${errorJson}`);
+                    throw new Error(`Verification Response Recieved, but failed. Status: ${verifyResponse.status}, Body: ${JSON.stringify(errorJson)}`);
                 }
                 return await verifyResponse.json();
             }
@@ -343,4 +343,5 @@
                 throw new Error("Attached Photo Not Recognized.")
             }
         }
+        
     </script>
