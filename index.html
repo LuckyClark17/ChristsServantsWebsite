@@ -165,14 +165,14 @@
                 return
             }
             try{
-                const verification = await verifyRecaptchaToken(recaptchaResponse);
+                const verification = await validateSubmission(recaptchaResponse);
                 if (!verification.success) {
-                    alert("reCAPTCHA verification failed. Please try again.")
+                    alert("Submission verification failed. Please try again.")
                     return;
                 }
             }
             catch(error) {
-                alert("reCAPTCHA verification failed. Please try again.");
+                alert("Submission verification failed. Please try again.");
                 throw error;
             }
 
@@ -266,22 +266,25 @@
             }
         }
 
-        async function verifyRecaptchaToken(token) {
+        async function validateSubmission(token) {
             try {
-                const verifyResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/VerifyReCAPTCHAToken", {
+                const verifyResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/ValidateSubmission", {
                     "method": "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({ token })
                 });
+
+                
                 if (!verifyResponse.ok) {
-                    throw new Error("Failed to Verify Token");
+                    const errorJson = await verifyResponse.json()
+                    throw new Error(`Verification Response Recieved, but failed. Status: ${verifyResponse.status}, Body: ${errorJson}`);
                 }
                 return await verifyResponse.json();
             }
             catch (e) {
-                console.error("Failed to Verify Token");
+                console.error("Failed validate submission call:", e);
                 throw e;
             }
         }
