@@ -10,7 +10,6 @@
         body {
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
-            display: flex;
             justify-content: center;
             margin: 0;
             min-height: 100vh;
@@ -161,7 +160,7 @@
 
             const recaptchaResponse = grecaptcha.getResponse(); //returns str ID
             if (!recaptchaResponse) { //checks if token is an empty string (if they havent completed it)
-                alert("Please complete the reCAPTCHA to submit the form.")
+                alert("Please complete the reCAPTCHA to submit the form.");
                 return
             }
             try{
@@ -187,16 +186,14 @@
                 const photoUrl = await storePhotoInS3();
                 const formObject = getFormObject(event, photoUrl);
                 await sendFormToProcessAPI(formObject);
-                submitButton.disabled = false; // Re-enable button if an error occurs
-                submitButton.textContent = "Submit"; // Reset button text
-                submitButton.classList.remove('disabled-button'); // Remove the disabled visual effect
-                console.log("submission completed. redirecting to thank you page")
-                //window.location.href = "thank-you.html";
+
+                console.log("submission completed. redirecting to thank you page");
+                window.location.href = "thank-you.html";
             } catch (error) {
                 console.error("Error submitting form:", error);
                 submitButton.disabled = false; // Re-enable button if an error occurs
-                submitButton.textContent = "Submit"; // Reset button text
-                submitButton.classList.remove('disabled-button'); // Remove the disabled visual effect
+                submitButton.textContent = "Submit";
+                submitButton.classList.remove('disabled-button');
                 alert("An error occurred. Please try again.");
             }
         });
@@ -252,7 +249,7 @@
         async function getPresignedResponse(file) {
             console.log("getting presigned URL")
             try {
-                const presignedResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/getPresignedURL", {
+                const presignedResponse = await fetch("https://aob1734cni.execute-api.us-east-2.amazonaws.com/GetPresignedURLRoute", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ fileName: file.name, fileType: file.type })
@@ -270,8 +267,8 @@
 
         async function validateSubmission(token) {
             try {
-                const verifyResponse = await fetch("https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/ValidateSubmission", {
-                    "method": "POST",
+                const verifyResponse = await fetch("https://aob1734cni.execute-api.us-east-2.amazonaws.com/ValidateSubmissionRoute", {
+                    method: "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
@@ -311,15 +308,15 @@
         }
 
         async function sendFormToProcessAPI(formObject) {
-            console.log("sending form to db")
-            const processFormApiUrl = "https://dpb61izi2g.execute-api.us-east-2.amazonaws.com/processFormsToRDS";
+            console.log("sending form");
+            const processFormApiUrl = "https://aob1734cni.execute-api.us-east-2.amazonaws.com/processForumsToRDSRoute";
             try {
                 const apiResponse = await fetch(processFormApiUrl, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",  // Set content type to JSON
+                        "Content-Type": "application/json",
                     },
-                    body: JSON.stringify(formObject),  // Send the form data as a JSON object
+                    body: JSON.stringify(formObject),
                 });
 
                 if (!apiResponse.ok) {

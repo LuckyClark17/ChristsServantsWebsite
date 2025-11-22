@@ -1,0 +1,406 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ""
+Parameters:
+    Issue:
+      Type: String
+      Default: "dev"
+Resources:
+    CSDatabaseEC2Instance:
+        Type: "AWS::EC2::Instance"
+        Properties:
+            ImageId: "ami-025ca978d4c1d9825"
+            InstanceType: "t2.micro"
+            AvailabilityZone: !GetAtt EC2Subnet.AvailabilityZone
+            Tenancy: "default"
+            SubnetId: !Ref EC2Subnet
+            EbsOptimized: false
+            SecurityGroupIds: 
+              - !Ref CSDatabaseEC2SecurityGroup
+            SourceDestCheck: true
+            BlockDeviceMappings: 
+              - 
+                DeviceName: "/dev/xvda"
+                Ebs: 
+                    Encrypted: false
+                    VolumeSize: 8
+                    VolumeType: "gp3"
+                    DeleteOnTermination: true
+            IamInstanceProfile: !Ref EC2InstanceProfile
+            Tags: 
+              - 
+                Key: "Name"
+                Value: !Sub "CS-Database-EC2-Instance-${Issue}"
+            HibernationOptions: 
+                Configured: false
+            EnclaveOptions: 
+                Enabled: false
+
+    CSDatabaseSecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "Security Group for the prod-cs-database. Permissions to connect for EC2, Lambda"
+            GroupName: !Sub "cs-database-sg-${Issue}"
+            VpcId: !Ref EC2VPC
+            SecurityGroupIngress: 
+              - 
+                SourceSecurityGroupId: !Ref CSDatabaseEC2SecurityGroup
+                SourceSecurityGroupOwnerId: "783764573035"
+                FromPort: 3306
+                IpProtocol: "tcp"
+                ToPort: 3306
+              - 
+                SourceSecurityGroupId: !Ref CSDatabaseLambdaSecurityGroup
+                SourceSecurityGroupOwnerId: "783764573035"
+                FromPort: 3306
+                IpProtocol: "tcp"
+                ToPort: 3306
+
+    CSDatabaseEC2SecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "EC2 Security Group to connect to cs-database"
+            GroupName: !Sub "cs-database-ec2-sg-${Issue}"
+            VpcId: !Ref EC2VPC
+            SecurityGroupEgress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                IpProtocol: "-1"
+
+    CSDatabaseLambdaSecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "Allows lambdas to connect to cs-database"
+            GroupName: !Sub "lambda-cs-database-sg-${Issue}"
+            VpcId: !Ref EC2VPC
+            SecurityGroupEgress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                IpProtocol: "-1"
+
+    RDSDBInstance:
+        Type: "AWS::RDS::DBInstance"
+        Properties:
+            DBInstanceIdentifier: !Sub "prod-cs-database-instance-${Issue}"
+            AllocatedStorage: 20
+            DBInstanceClass: "db.t3.micro"
+            Engine: "mysql"
+            MasterUsername: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:username}}"
+            MasterUserPassword: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:password}}"
+            PreferredBackupWindow: "09:24-09:54"
+            BackupRetentionPeriod: 7
+            AvailabilityZone: !Sub "${AWS::Region}b"
+            PreferredMaintenanceWindow: "thu:03:06-thu:03:36"
+            MultiAZ: false
+            EngineVersion: "8.0.42"
+            AutoMinorVersionUpgrade: true
+            LicenseModel: "general-public-license"
+            PubliclyAccessible: false
+            StorageType: "gp2"
+            Port: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:port}}"
+            StorageEncrypted: true
+            KmsKeyId: !Sub "arn:aws:kms:${AWS::Region}:783764573035:key/8c39fe8d-8451-41b7-ad04-938fd318ca2d"
+            CopyTagsToSnapshot: true
+            MonitoringInterval: 0
+            EnableIAMDatabaseAuthentication: false
+            EnablePerformanceInsights: false
+            DeletionProtection: false
+            DBSubnetGroupName: !Ref RDSSubnetGroup
+            VPCSecurityGroups: 
+              - !Ref CSDatabaseSecurityGroup
+            DBParameterGroupName: "default.mysql8.0"
+            OptionGroupName: "default:mysql-8-0"
+            EnableCloudwatchLogsExports: 
+              - "audit"
+              - "error"
+              - "general"
+            CACertificateIdentifier: "rds-ca-rsa2048-g1"
+
+    EC2VPC:
+        Type: "AWS::EC2::VPC"
+        Properties:
+            CidrBlock: "172.31.0.0/16"
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            InstanceTenancy: "default"
+    EC2Subnet:
+        Type: "AWS::EC2::Subnet"
+        Properties:
+            AvailabilityZone: !Sub "${AWS::Region}a"
+            CidrBlock: "172.31.0.0/20"
+            VpcId: !Ref EC2VPC
+            MapPublicIpOnLaunch: true
+
+    EC2Subnet2:
+        Type: "AWS::EC2::Subnet"
+        Properties:
+            AvailabilityZone: !Sub "${AWS::Region}c"
+            CidrBlock: "172.31.32.0/20"
+            VpcId: !Ref EC2VPC
+            MapPublicIpOnLaunch: true
+
+    EC2Subnet3:
+        Type: "AWS::EC2::Subnet"
+        Properties:
+            AvailabilityZone: !Sub "${AWS::Region}b"
+            CidrBlock: "172.31.16.0/20"
+            VpcId: !Ref EC2VPC
+            MapPublicIpOnLaunch: true
+
+    DynamoDBTable:
+        Type: "AWS::DynamoDB::Table"
+        Properties:
+            AttributeDefinitions: 
+              - 
+                AttributeName: "ip"
+                AttributeType: "S"
+            BillingMode: "PAY_PER_REQUEST"
+            TableName: !Sub "FormIPLimitTable-${Issue}"
+            KeySchema: 
+              - 
+                AttributeName: "ip"
+                KeyType: "HASH"
+            TimeToLiveSpecification: 
+                AttributeName: "ttl"
+                Enabled: true
+
+    ProcessForumsLambda:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: "Process Forums Lambda"
+            Environment: 
+                Variables: 
+                    PASSWORD: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:password}}"
+                    DB_NAME: "CS-Database"
+                    USER_NAME: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:username}}"
+                    RDS_PROXY_HOST: !GetAtt RDSDBInstance.Endpoint.Address
+            FunctionName: !Sub "ProcessForumsLambda-${Issue}"
+            Handler: "app.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            CodeUri: src/ProcessForumsLambda/
+            MemorySize: 128
+            Role: !GetAtt IAMRole2.Arn
+            Runtime: "python3.12"
+            Timeout: 120
+            VpcConfig: 
+                SubnetIds: 
+                  - !Ref EC2Subnet
+                  - !Ref EC2Subnet3
+                  - !Ref EC2Subnet2
+                SecurityGroupIds: 
+                  - !Ref CSDatabaseLambdaSecurityGroup
+            EphemeralStorage: 
+                Size: 512
+
+    VerifyReCAPTCHATokenLambda:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: "ReCAPTCHA Function"
+            Environment: 
+                Variables: 
+                    secret_key: "{{resolve:secretsmanager:recaptcha-secret-key:SecretString:recaptcha-secret-key}}"
+            FunctionName: !Sub "VerifyReCAPTCHATokenLambda-${Issue}"
+            Handler: "index.handler"
+            Architectures: 
+              - "x86_64"
+            CodeUri: src/VerifyReCAPTCHATokenLambda/
+            MemorySize: 128
+            Role: !GetAtt IAMRole4.Arn
+            Runtime: "nodejs22.x"
+            Timeout: 3
+
+            EphemeralStorage: 
+                Size: 512
+
+    PresignedURLFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: "URL Function"
+            Environment: 
+                Variables: 
+                    BUCKET_NAME: "processforms-s3bucket"
+            FunctionName: !Sub "PresignedURLFunction-${Issue}"
+            Handler: "app.lambda_handler"
+            Architectures: 
+              - "arm64"
+            CodeUri: src/PresignedURLFunction/
+            MemorySize: 128
+            Role: !GetAtt IAMRole3.Arn
+            Runtime: "python3.13"
+            Timeout: 3
+            EphemeralStorage: 
+                Size: 512
+
+    ForumWebsiteBFF:
+        Type: "AWS::ApiGatewayV2::Api"
+        Properties:
+            Name: !Sub "ForumWebsiteBFF-dev"
+            ApiKeySelectionExpression: "$request.header.x-api-key"
+            ProtocolType: "HTTP"
+            RouteSelectionExpression: "$request.method $request.path"
+            CorsConfiguration: 
+                AllowCredentials: false
+                AllowMethods: 
+                  - "POST"
+                AllowOrigins: 
+                  - "https://main.d1y0l8029swz9t.amplifyapp.com"
+                MaxAge: 1000
+            DisableExecuteApiEndpoint: false
+
+    ApiGatewayV2Stage:
+        Type: "AWS::ApiGatewayV2::Stage"
+        Properties:
+            StageName: "$default"
+            StageVariables: {}
+            ApiId: !Ref ForumWebsiteBFF
+            RouteSettings: {}
+            DefaultRouteSettings: 
+                DetailedMetricsEnabled: false
+                ThrottlingBurstLimit: 5
+                ThrottlingRateLimit: 2
+            AutoDeploy: true
+
+    processForumsToRDSRoute:
+        Type: "AWS::ApiGatewayV2::Route"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ApiKeyRequired: false
+            AuthorizationType: "NONE"
+            RequestParameters: {}
+            RouteKey: "POST /processForumsToRDSRoute"
+            Target: !Sub "integrations/${ApiGatewayV2Integration3}"
+
+    getPresignedURLRoute:
+        Type: "AWS::ApiGatewayV2::Route"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ApiKeyRequired: false
+            AuthorizationType: "NONE"
+            RouteKey: "POST /GetPresignedURLRoute"
+            Target: !Sub "integrations/${ApiGatewayV2Integration}"
+
+    ValidateSubmissionRoute:
+        Type: "AWS::ApiGatewayV2::Route"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ApiKeyRequired: false
+            AuthorizationType: "NONE"
+            RouteKey: "POST /ValidateSubmissionRoute"
+            Target: !Sub "integrations/${ApiGatewayV2Integration5}"
+
+    ApiGatewayV2Integration:
+        Type: "AWS::ApiGatewayV2::Integration"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ConnectionType: "INTERNET"
+            IntegrationMethod: "POST"
+            IntegrationType: "AWS_PROXY"
+            IntegrationUri: !GetAtt PresignedURLFunction.Arn
+            TimeoutInMillis: 30000
+            PayloadFormatVersion: "2.0"
+
+    ApiGatewayV2Integration3:
+        Type: "AWS::ApiGatewayV2::Integration"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ConnectionType: "INTERNET"
+            IntegrationMethod: "POST"
+            IntegrationType: "AWS_PROXY"
+            IntegrationUri: !GetAtt ProcessForumsLambda.Arn 
+            TimeoutInMillis: 30000
+            PayloadFormatVersion: "2.0"
+
+    ApiGatewayV2Integration5:
+        Type: "AWS::ApiGatewayV2::Integration"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ConnectionType: "INTERNET"
+            IntegrationMethod: "POST"
+            IntegrationType: "AWS_PROXY"
+            IntegrationUri: !GetAtt VerifyReCAPTCHATokenLambda.Arn
+            TimeoutInMillis: 30000
+            PayloadFormatVersion: "2.0"
+
+    IAMRole:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: "/"
+            RoleName: !Sub "CS-Database-EC2-Role-${Issue}"
+            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            MaxSessionDuration: 3600
+            ManagedPolicyArns: 
+              - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+            Description: "Allows EC2 instances to call AWS services on your behalf."
+
+    IAMRole2:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: "/service-role/"
+            RoleName: !Sub "ProcessForumsLambda-1739585659954-${Issue}"
+            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AWSLambdaVPCAccessExecutionRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            MaxSessionDuration: 3600
+            ManagedPolicyArns: 
+              - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+
+    IAMRole3:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: "/service-role/"
+            RoleName: !Sub "PresignedURLFunction-role-ck7vtdfg-${Issue}"
+            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            MaxSessionDuration: 3600
+            ManagedPolicyArns: 
+              - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+              - "arn:aws:iam::783764573035:policy/service-role/AWSLambdaBasicExecutionRole-170297ac-371f-45c1-ae90-5ab83d9c1915"
+
+    IAMRole4:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: "/service-role/"
+            RoleName: !Sub "VerifyReCAPTCHAToken-role-9i0qrij1-${Issue}"
+            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            MaxSessionDuration: 3600
+            ManagedPolicyArns: 
+              - "arn:aws:iam::783764573035:policy/service-role/AWSLambdaBasicExecutionRole-4e2799be-d802-4cc5-915a-e78eab643023"
+
+    RDSSubnetGroup:
+      Type: AWS::RDS::DBSubnetGroup
+      Properties:
+        DBSubnetGroupDescription: "Subnets for RDS"
+        SubnetIds:
+          - !Ref EC2Subnet
+          - !Ref EC2Subnet2
+          - !Ref EC2Subnet3
+
+
+    EC2InstanceProfile:
+      Type: AWS::IAM::InstanceProfile
+      Properties:
+        Roles:
+          - !Ref IAMRole
+
+
+    PresignedURLPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref PresignedURLFunction
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/*/*"
+
+    ProcessForumsPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref ProcessForumsLambda
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/*/*"
+
+    VerifyRecaptchaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref VerifyReCAPTCHATokenLambda
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/*/*"
