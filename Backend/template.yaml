@@ -387,7 +387,7 @@ Resources:
         FunctionName: !Ref PresignedURLFunction
         Action: lambda:InvokeFunction
         Principal: apigateway.amazonaws.com
-        SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/*/*"
+        SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/POST/GetPresignedURLRoute
 
     ProcessForumsPermission:
       Type: AWS::Lambda::Permission
@@ -395,7 +395,7 @@ Resources:
         FunctionName: !Ref ProcessForumsLambda
         Action: lambda:InvokeFunction
         Principal: apigateway.amazonaws.com
-        SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/*/*"
+        SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/POST/processForumsToRDSRoute
 
     VerifyRecaptchaPermission:
       Type: AWS::Lambda::Permission
@@ -403,4 +403,4 @@ Resources:
         FunctionName: !Ref VerifyReCAPTCHATokenLambda
         Action: lambda:InvokeFunction
         Principal: apigateway.amazonaws.com
-        SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/*/*"
+        SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/POST/ValidateSubmissionRoute
