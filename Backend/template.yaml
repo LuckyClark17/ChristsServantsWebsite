@@ -245,6 +245,9 @@ Resources:
                   - "POST"
                 AllowOrigins: 
                   - "https://main.d1y0l8029swz9t.amplifyapp.com"
+                AllowHeaders:
+                    - "Content-Type"
+                    - "*"
                 MaxAge: 1000
             DisableExecuteApiEndpoint: false
 
@@ -404,3 +407,45 @@ Resources:
         Action: lambda:InvokeFunction
         Principal: apigateway.amazonaws.com
         SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/POST/ValidateSubmissionRoute
+    # Internet gateway for the VPC
+    InternetGateway:
+      Type: AWS::EC2::InternetGateway
+
+    VPCGatewayAttachment:
+      Type: AWS::EC2::VPCGatewayAttachment
+      Properties:
+        VpcId: !Ref EC2VPC
+        InternetGatewayId: !Ref InternetGateway
+
+    # Public route table (like the default VPC's main route table)
+    PublicRouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        VpcId: !Ref EC2VPC
+
+    # Default route to the internet
+    DefaultRoute:
+      Type: AWS::EC2::Route
+      Properties:
+        RouteTableId: !Ref PublicRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref InternetGateway
+
+    # Associate ALL your subnets with the public route table
+    SubnetRouteTableAssociation1:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref EC2Subnet
+        RouteTableId: !Ref PublicRouteTable
+
+    SubnetRouteTableAssociation2:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref EC2Subnet2
+        RouteTableId: !Ref PublicRouteTable
+
+    SubnetRouteTableAssociation3:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref EC2Subnet3
+        RouteTableId: !Ref PublicRouteTable
