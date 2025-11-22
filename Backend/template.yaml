@@ -236,7 +236,6 @@ Resources:
         Type: "AWS::ApiGatewayV2::Api"
         Properties:
             Name: !Sub "ForumWebsiteBFF-dev"
-            ApiKeySelectionExpression: "$request.header.x-api-key"
             ProtocolType: "HTTP"
             RouteSelectionExpression: "$request.method $request.path"
             CorsConfiguration: 
@@ -426,6 +425,7 @@ Resources:
     # Default route to the internet
     DefaultRoute:
       Type: AWS::EC2::Route
+      DependsOn: VPCGatewayAttachment
       Properties:
         RouteTableId: !Ref PublicRouteTable
         DestinationCidrBlock: 0.0.0.0/0

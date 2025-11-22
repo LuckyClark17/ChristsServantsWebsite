@@ -161,19 +161,19 @@
 
             const recaptchaResponse = grecaptcha.getResponse(); //returns str ID
             if (!recaptchaResponse) { //checks if token is an empty string (if they havent completed it)
-                alert("Please complete the reCAPTCHA to submit the form.");
-                return
+               alert("Please complete the reCAPTCHA to submit the form.");
+               return
             }
             try{
-                const verification = await validateSubmission(recaptchaResponse);
-                if (!verification.success) {
-                    alert("Submission verification failed. Please try again.")
-                    return;
-                }
+               const verification = await validateSubmission(recaptchaResponse);
+               if (!verification.success) {
+                   alert("Submission verification failed. Please try again.")
+                   return;
+               }
             }
             catch(error) {
-                alert("Submission verification failed. Please try again.");
-                throw error;
+               alert("Submission verification failed. Please try again.");
+               throw error;
             }
 
             const submitButton = document.querySelector("button[type='submit']");
@@ -250,7 +250,7 @@
         async function getPresignedResponse(file) {
             console.log("getting presigned URL")
             try {
-                const presignedResponse = await fetch("https://m5hynkmc16.execute-api.us-east-2.amazonaws.com/GetPresignedURLRoute", {
+                const presignedResponse = await fetch("https://cj7bhu326j.execute-api.us-east-2.amazonaws.com/GetPresignedURLRoute", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ fileName: file.name, fileType: file.type })
@@ -268,7 +268,7 @@
 
         async function validateSubmission(token) {
             try {
-                const verifyResponse = await fetch("https://m5hynkmc16.execute-api.us-east-2.amazonaws.com/ValidateSubmissionRoute", {
+                const verifyResponse = await fetch("https://cj7bhu326j.execute-api.us-east-2.amazonaws.com/ValidateSubmissionRoute", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -310,7 +310,7 @@
 
         async function sendFormToProcessAPI(formObject) {
             console.log("sending form");
-            const processFormApiUrl = "https://m5hynkmc16.execute-api.us-east-2.amazonaws.com/processForumsToRDSRoute";
+            const processFormApiUrl = "https://cj7bhu326j.execute-api.us-east-2.amazonaws.com/processForumsToRDSRoute";
             try {
                 const apiResponse = await fetch(processFormApiUrl, {
                     method: "POST",
