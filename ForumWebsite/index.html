@@ -250,7 +250,8 @@
         async function getPresignedResponse(file) {
             console.log("getting presigned URL")
             try {
-                const presignedResponse = await fetch("https://cj7bhu326j.execute-api.us-east-2.amazonaws.com/GetPresignedURLRoute", {
+                const API_BASE = "PLACEHOLDER_URL"
+                const presignedResponse = await fetch(`${API_BASE}/GetPresignedURLRoute`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ fileName: file.name, fileType: file.type })
@@ -268,7 +269,8 @@
 
         async function validateSubmission(token) {
             try {
-                const verifyResponse = await fetch("https://cj7bhu326j.execute-api.us-east-2.amazonaws.com/ValidateSubmissionRoute", {
+                const API_BASE = "PLACEHOLDER_URL"
+                const verifyResponse = await fetch(`${API_BASE}/ValidateSubmissionRoute`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -310,7 +312,8 @@
 
         async function sendFormToProcessAPI(formObject) {
             console.log("sending form");
-            const processFormApiUrl = "https://cj7bhu326j.execute-api.us-east-2.amazonaws.com/processForumsToRDSRoute";
+            const API_BASE = "PLACEHOLDER_URL"
+            const processFormApiUrl = "PLACEHOLDER_URL/processForumsToRDSRoute";
             try {
                 const apiResponse = await fetch(processFormApiUrl, {
                     method: "POST",

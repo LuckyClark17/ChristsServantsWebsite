@@ -2,7 +2,10 @@ version: 1
 frontend:
   phases:
     build:
-      commands: []
+      commands: [
+        "API_URL=$(aws cloudformation describe-stacks --stack-name website-stack-v1 --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text)",
+        "sed -i \"s|PLACEHOLDER_URL|$API_URL|g\" index.html"
+      ]
   artifacts:
     baseDirectory: ForumWebsite # deployment only sees the frontend
     files:
