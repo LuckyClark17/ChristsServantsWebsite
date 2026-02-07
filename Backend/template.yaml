@@ -56,6 +56,13 @@ Resources:
                 IpProtocol: "tcp"
                 ToPort: 3306
 
+              -
+                SourceSecurityGroupId: !Ref CSDatabaseAppSmithSecurityGroup
+                SourceSecurityGroupOwnerId: "783764573035"
+                FromPort: 3306
+                IpProtocol: "tcp"
+                ToPort: 3306
+
     CSDatabaseEC2SecurityGroup:
         Type: "AWS::EC2::SecurityGroup"
         Properties:
@@ -66,6 +73,24 @@ Resources:
               - 
                 CidrIp: "0.0.0.0/0"
                 IpProtocol: "-1"
+
+    CSDatabaseAppSmithSecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "EC2 Security Group to connect to appsmith"
+            GroupName: !Sub "cs-database-appsmith-sg-${Issue}"
+            VpcId: !Ref EC2VPC
+            SecurityGroupIngress: 
+              - 
+                CidrIp: "18.223.74.85/32"
+                IpProtocol: "tcp"
+                FromPort: 3306
+                ToPort: 3306
+              -
+                CidrIp: "3.131.104.27/32"
+                IpProtocol: "tcp"
+                FromPort: 3306
+                ToPort: 3306
 
     CSDatabaseLambdaSecurityGroup:
         Type: "AWS::EC2::SecurityGroup"
@@ -96,7 +121,7 @@ Resources:
             EngineVersion: "8.0.42"
             AutoMinorVersionUpgrade: true
             LicenseModel: "general-public-license"
-            PubliclyAccessible: false
+            PubliclyAccessible: true
             StorageType: "gp2"
             Port: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:port}}"
             StorageEncrypted: true
@@ -116,6 +141,7 @@ Resources:
               - "error"
               - "general"
             CACertificateIdentifier: "rds-ca-rsa2048-g1"
+            
 
     EC2VPC:
         Type: "AWS::EC2::VPC"
