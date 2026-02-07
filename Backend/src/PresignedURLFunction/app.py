@@ -35,7 +35,7 @@ def lambda_handler(event, context):
             Params={'Bucket': bucket_name, 'Key': file_key, 'ContentType': file_type},
             ExpiresIn=3600  # URL is valid for 1 hour (3600 seconds)
         )
-        
+
         logger.info(f"Generated presigned URL: {presigned_url}")
         # The URL for accessing the uploaded file after it's uploaded to S3
         file_url = f'https://{bucket_name}.s3.amazonaws.com/{file_key}'

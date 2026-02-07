@@ -453,4 +453,4 @@ Resources:
 
 Outputs:
     ApiUrl:
-      Value: !Ref ForumWebsiteBFF
+      Value: !Sub "https://${ForumWebsiteBFF}.execute-api.${AWS::Region}.amazonaws.com/dev/"
