@@ -159,27 +159,32 @@
         document.getElementById('myForm').addEventListener('submit', async function (event) {
             event.preventDefault();
 
-            const recaptchaResponse = grecaptcha.getResponse(); //returns str ID
-            if (!recaptchaResponse) { //checks if token is an empty string (if they havent completed it)
-               alert("Please complete the reCAPTCHA to submit the form.");
-               return
-            }
-            try{
-               const verification = await validateSubmission(recaptchaResponse);
-               if (!verification.success) {
-                   alert("Submission verification failed. Please try again.")
-                   return;
-               }
-            }
-            catch(error) {
-               alert("Submission verification failed. Please try again.");
-               throw error;
-            }
-
             const submitButton = document.querySelector("button[type='submit']");
             submitButton.disabled = true; // Disables the button
             submitButton.textContent = "Processing..."; // Changes button text
             submitButton.classList.add('disabled-button');
+
+            try {
+                const recaptchaResponse = grecaptcha.getResponse(); //returns str ID
+                if (!recaptchaResponse) { //checks if token is an empty string (if they havent completed it)
+                    alert("Please complete the reCAPTCHA to submit the form.");
+                    return;
+                }
+
+                const verification = await validateSubmission(recaptchaResponse);
+                if (!verification.success) {
+                    alert("Submission verification failed. Please try again.")
+                    return;
+                }
+            }
+            catch (error) {
+                alert("Submission verification failed. Please try again.");
+                submitButton.disabled = false; // Re-enable button if an error occurs
+                submitButton.textContent = "Submit";
+                submitButton.classList.remove('disabled-button');
+                alert("An error occurred. Please try again.");
+                throw error;
+            }
 
 
 
@@ -196,6 +201,7 @@
                 submitButton.textContent = "Submit";
                 submitButton.classList.remove('disabled-button');
                 alert("An error occurred. Please try again.");
+                throw error;
             }
         });
 
@@ -278,7 +284,7 @@
                     body: JSON.stringify({ token })
                 });
 
-                
+
                 if (!verifyResponse.ok) {
                     const errorJson = await verifyResponse.json()
                     throw new Error(`Verification Response Recieved, but failed. Status: ${verifyResponse.status}, Body: ${JSON.stringify(errorJson)}`);
@@ -313,7 +319,7 @@
         async function sendFormToProcessAPI(formObject) {
             console.log("sending form");
             const API_BASE = "PLACEHOLDER_URL"
-            const processFormApiUrl = "PLACEHOLDER_URL/processForumsToRDSRoute";
+            const processFormApiUrl = `${API_BASE}/processForumsToRDSRoute`;
             try {
                 const apiResponse = await fetch(processFormApiUrl, {
                     method: "POST",
@@ -348,5 +354,4 @@
                 throw new Error("Attached Photo Not Recognized.")
             }
         }
-        
     </script>
