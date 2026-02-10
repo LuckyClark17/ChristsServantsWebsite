@@ -169,11 +169,10 @@
                 }
             }
             catch (error) {
-                alert("Submission verification failed. Please try again.");
                 submitButton.disabled = false; // Re-enable button if an error occurs
                 submitButton.textContent = "Submit";
                 submitButton.classList.remove('disabled-button');
-                alert("An error occurred. Please try again.");
+                alert("Submission verification failed. Please try again.");
                 throw error;
             }
 
@@ -275,9 +274,10 @@
                     },
                     body: JSON.stringify({ token })
                 });
-
+                
                 const data = await verifyResponse.json();
-                if (!data.ok) {
+
+                if (!verifyResponse.ok) {
                     const errorJson = data;
                     throw new Error(`Verification Response Recieved, but failed. Status: ${verifyResponse.status}, Body: ${JSON.stringify(errorJson)}`);
                 }
