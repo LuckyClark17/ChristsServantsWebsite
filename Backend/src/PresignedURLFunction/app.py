@@ -41,7 +41,7 @@ def lambda_handler(event, context):
             Params={'Bucket': bucket_name, 'Key': file_key, 'ContentType': file_type},
             ExpiresIn=60
         )
-
+        
         logger.info(f"Generated presigned URL: {presigned_url}")
         file_url = f'https://{bucket_name}.s3.amazonaws.com/{file_key}'
         logger.info(json.dumps({'uploadUrl': presigned_url, 'fileUrl': file_url}))
