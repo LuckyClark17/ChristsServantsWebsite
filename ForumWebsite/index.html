@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Christ's Servants Volunteer Form</title>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script> <!-- Downloads api.js from googles server. executes code, creates grecaptcha-->
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,9 +16,7 @@
             min-height: 100vh;
             /* Allow page to expand naturally */
             overflow-y: auto;
-            /* Enables scrolling */
             padding: 20px 0;
-            /* Adds some spacing to prevent top cutoff */
         }
 
         form {
@@ -27,7 +25,6 @@
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             width: 400px;
-            /* Increase width for better balance */
         }
 
         input,
@@ -46,9 +43,7 @@
             cursor: pointer;
             border: none;
             font-size: 18px;
-            /* Bigger font for better readability */
             padding: 12px;
-            /* More padding for a better feel */
         }
 
         button:hover {
@@ -69,7 +64,6 @@
 
         #skill-input {
             flex-grow: 1;
-            /* Makes input stretch properly */
         }
 
         ul {
@@ -105,15 +99,12 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            /* Ensures proper spacing between checkbox and text */
             font-size: 16px;
             width: fit-content;
-            /* Ensures labels do not stretch */
         }
 
         .availability-container input {
             width: auto;
-            /* Keeps checkboxes small */
         }
     </style>
 </head>
@@ -257,11 +248,12 @@
             console.log("getting presigned URL")
             try {
                 const API_BASE = "PLACEHOLDER_URL"
-                const presignedResponse = await fetch(`${API_BASE}/GetPresignedURLRoute`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ fileName: file.name, fileType: file.type })
-                });
+                const params = {
+                    fileName: file.name,
+                    fileType: file.type
+                };
+                const queryString = new URLSearchParams(params).toString();
+                const presignedResponse = await fetch(`${API_BASE}/GetPresignedURLRoute?${queryString}`);
                 if (!presignedResponse.ok) {
                     throw new Error("Failed to get pre-signed URL");
                 }
@@ -284,12 +276,12 @@
                     body: JSON.stringify({ token })
                 });
 
-
-                if (!verifyResponse.ok) {
-                    const errorJson = await verifyResponse.json()
+                const data = await verifyResponse.json();
+                if (!data.ok) {
+                    const errorJson = data;
                     throw new Error(`Verification Response Recieved, but failed. Status: ${verifyResponse.status}, Body: ${JSON.stringify(errorJson)}`);
                 }
-                return await verifyResponse.json();
+                return data;
             }
             catch (e) {
                 console.error("Failed validate submission call:", e);
@@ -297,7 +289,7 @@
             }
         }
 
-        async function uploadPhotoToS3(file, uploadUrl) {     //Upload the file to S3 using the pre-signed URL
+        async function uploadPhotoToS3(file, uploadUrl) { //Upload the file to S3 using the pre-signed URL
             console.log("uploading photo to s3")
             try {
                 const uploadResponse = await fetch(uploadUrl, {

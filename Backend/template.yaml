@@ -291,7 +291,7 @@ Resources:
             ApiId: !Ref ForumWebsiteBFF
             ApiKeyRequired: false
             AuthorizationType: "NONE"
-            RouteKey: "POST /GetPresignedURLRoute"
+            RouteKey: "GET /GetPresignedURLRoute"
             Target: !Sub "integrations/${ApiGatewayV2Integration}"
 
     ValidateSubmissionRoute:
@@ -308,7 +308,7 @@ Resources:
         Properties:
             ApiId: !Ref ForumWebsiteBFF
             ConnectionType: "INTERNET"
-            IntegrationMethod: "POST"
+            IntegrationMethod: "GET"
             IntegrationType: "AWS_PROXY"
             IntegrationUri: !GetAtt PresignedURLFunction.Arn
             TimeoutInMillis: 30000
@@ -387,13 +387,11 @@ Resources:
           - !Ref EC2Subnet2
           - !Ref EC2Subnet3
 
-
     EC2InstanceProfile:
       Type: AWS::IAM::InstanceProfile
       Properties:
         Roles:
           - !Ref IAMRole
-
 
     PresignedURLPermission:
       Type: AWS::Lambda::Permission
@@ -401,7 +399,7 @@ Resources:
         FunctionName: !Ref PresignedURLFunction
         Action: lambda:InvokeFunction
         Principal: apigateway.amazonaws.com
-        SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/POST/GetPresignedURLRoute
+        SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/GET/GetPresignedURLRoute
 
     ProcessForumsPermission:
       Type: AWS::Lambda::Permission

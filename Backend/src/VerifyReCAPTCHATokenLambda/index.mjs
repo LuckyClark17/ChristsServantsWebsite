@@ -57,6 +57,7 @@ export const handler = async (event) => {
       body: JSON.stringify(data)
   }
 };
+
 async function checkAndUpdateRateLimit(ip) {
   console.log("Incoming IP: " + ip);
   const now = Math.floor(Date.now() / 1000);
