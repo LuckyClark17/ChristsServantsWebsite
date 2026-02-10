@@ -274,7 +274,7 @@
                     },
                     body: JSON.stringify({ token })
                 });
-                
+
                 const data = await verifyResponse.json();
 
                 if (!verifyResponse.ok) {
@@ -322,9 +322,9 @@
                 });
 
                 if (!apiResponse.ok) {
-                    const responseText = await apiResponse.text();
+                    const responseBody = await apiResponse.json();
                     console.error("API call failed with status:", apiResponse.status);
-                    console.error("Response body:", responseText);
+                    console.error("Response body:", responseBody);
                     throw new Error("API call failed with status:" + apiResponse.status);
                 }
             }

@@ -192,7 +192,7 @@ Resources:
               - "x86_64"
             CodeUri: src/ProcessForumsLambda/
             MemorySize: 128
-            Role: !GetAtt IAMRole2.Arn
+            Role: !GetAtt CSLambdaRole.Arn
             Runtime: "python3.12"
             Timeout: 120
             VpcConfig: 
@@ -212,18 +212,12 @@ Resources:
             Environment: 
                 Variables: 
                     secret_key: "{{resolve:secretsmanager:recaptcha-secret-key:SecretString:recaptcha-secret-key}}"
-            FunctionName: !Sub "VerifyReCAPTCHATokenLambda-${Issue}"
+            FunctionName: !Sub "VerifyReCAPTCHAToken-${Issue}"
             Handler: "index.handler"
-            Architectures: 
-              - "x86_64"
             CodeUri: src/VerifyReCAPTCHATokenLambda/
-            MemorySize: 128
-            Role: !GetAtt IAMRole4.Arn
+            Role: !GetAtt CSLambdaRole.Arn
             Runtime: "nodejs22.x"
             Timeout: 3
-
-            EphemeralStorage: 
-                Size: 512
 
     PresignedURLFunction:
         Type: AWS::Serverless::Function
@@ -238,7 +232,7 @@ Resources:
               - "arm64"
             CodeUri: src/PresignedURLFunction/
             MemorySize: 128
-            Role: !GetAtt IAMRole3.Arn
+            Role: !GetAtt CSLambdaRole.Arn
             Runtime: "python3.13"
             Timeout: 3
             EphemeralStorage: 
@@ -336,7 +330,7 @@ Resources:
             TimeoutInMillis: 30000
             PayloadFormatVersion: "2.0"
 
-    IAMRole:
+    CSDatabaseEC2Role:
         Type: "AWS::IAM::Role"
         Properties:
             Path: "/"
@@ -347,36 +341,15 @@ Resources:
               - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
             Description: "Allows EC2 instances to call AWS services on your behalf."
 
-    IAMRole2:
+    CSLambdaRole:
         Type: "AWS::IAM::Role"
         Properties:
             Path: "/service-role/"
-            RoleName: !Sub "ProcessForumsLambda-1739585659954-${Issue}"
+            RoleName: !Sub "CS-LambdaRole-${Issue}"
             AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AWSLambdaVPCAccessExecutionRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
             MaxSessionDuration: 3600
             ManagedPolicyArns: 
               - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-
-    IAMRole3:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: !Sub "PresignedURLFunction-role-ck7vtdfg-${Issue}"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-              - "arn:aws:iam::783764573035:policy/service-role/AWSLambdaBasicExecutionRole-170297ac-371f-45c1-ae90-5ab83d9c1915"
-
-    IAMRole4:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: !Sub "VerifyReCAPTCHAToken-role-9i0qrij1-${Issue}"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::783764573035:policy/service-role/AWSLambdaBasicExecutionRole-4e2799be-d802-4cc5-915a-e78eab643023"
 
     RDSSubnetGroup:
       Type: AWS::RDS::DBSubnetGroup
@@ -391,7 +364,7 @@ Resources:
       Type: AWS::IAM::InstanceProfile
       Properties:
         Roles:
-          - !Ref IAMRole
+          - !Ref CSDatabaseEC2Role
 
     PresignedURLPermission:
       Type: AWS::Lambda::Permission
