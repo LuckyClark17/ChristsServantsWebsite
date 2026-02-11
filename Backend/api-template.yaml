@@ -1,0 +1,190 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ""
+Parameters:
+    Issue:
+      Type: String
+      Default: "TEST"
+Resources:
+    ProcessForumsLambda:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: "Process Forums Lambda"
+            Environment: 
+                Variables: 
+                    PASSWORD: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:password}}"
+                    DB_NAME: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:DB_NAME}}"
+                    USER_NAME: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:username}}"
+                    RDS_PROXY_HOST: !ImportValue cs-data-stack-RDSEndpoint
+            FunctionName: !Sub "ProcessForumsLambda-${Issue}"
+            Handler: "app.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            CodeUri: src/ProcessForumsLambda/
+            MemorySize: 128
+            Role: !ImportValue cs-iam-stack-LambdaRole
+            Runtime: "python3.12"
+            Timeout: 120
+            VpcConfig: 
+                SubnetIds: 
+                  - !ImportValue cs-network-stack-Subnet1
+                  - !ImportValue cs-network-stack-Subnet2
+                  - !ImportValue cs-network-stack-Subnet3
+                SecurityGroupIds: 
+                  - !ImportValue cs-network-stack-DatabaseSG
+            EphemeralStorage: 
+                Size: 512
+
+    VerifyReCAPTCHATokenLambda:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: "ReCAPTCHA Function"
+            Environment: 
+                Variables: 
+                    secret_key: "{{resolve:secretsmanager:recaptcha-secret-key:SecretString:recaptcha-secret-key}}"
+                    table_name: !ImportValue cs-data-stack-DynamoTableName
+            FunctionName: !Sub "VerifyReCAPTCHAToken-${Issue}"
+            Handler: "index.handler"
+            CodeUri: src/VerifyReCAPTCHATokenLambda/
+            Role: !ImportValue cs-iam-stack-LambdaRole
+            Runtime: "nodejs22.x"
+            Timeout: 3
+
+    PresignedURLFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: "URL Function"
+            Environment: 
+                Variables: 
+                    BUCKET_NAME: "processforms-s3bucket"
+            FunctionName: !Sub "PresignedURLFunction-${Issue}"
+            Handler: "app.lambda_handler"
+            Architectures: 
+              - "arm64"
+            CodeUri: src/PresignedURLFunction/
+            MemorySize: 128
+            Role: !ImportValue cs-iam-stack-LambdaRole
+            Runtime: "python3.13"
+            Timeout: 3
+            EphemeralStorage: 
+                Size: 512
+
+    ForumWebsiteBFF:
+        Type: "AWS::ApiGatewayV2::Api"
+        Properties:
+            Name: !Sub "ForumWebsiteBFF-dev"
+            ProtocolType: "HTTP"
+            RouteSelectionExpression: "$request.method $request.path"
+            CorsConfiguration: 
+                AllowCredentials: false
+                AllowMethods: 
+                  - "POST"
+                AllowOrigins: 
+                  - "https://main.d1y0l8029swz9t.amplifyapp.com"
+                AllowHeaders:
+                    - "Content-Type"
+                    - "*"
+                MaxAge: 1000
+            DisableExecuteApiEndpoint: false
+
+    ApiGatewayV2Stage:
+        Type: "AWS::ApiGatewayV2::Stage"
+        Properties:
+            StageName: "$default"
+            StageVariables: {}
+            ApiId: !Ref ForumWebsiteBFF
+            RouteSettings: {}
+            DefaultRouteSettings: 
+                DetailedMetricsEnabled: false
+                ThrottlingBurstLimit: 5
+                ThrottlingRateLimit: 2
+            AutoDeploy: true
+
+    processForumsToRDSRoute:
+        Type: "AWS::ApiGatewayV2::Route"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ApiKeyRequired: false
+            AuthorizationType: "NONE"
+            RequestParameters: {}
+            RouteKey: "POST /processForumsToRDSRoute"
+            Target: !Sub "integrations/${ApiGatewayV2Integration3}"
+
+    getPresignedURLRoute:
+        Type: "AWS::ApiGatewayV2::Route"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ApiKeyRequired: false
+            AuthorizationType: "NONE"
+            RouteKey: "GET /GetPresignedURLRoute"
+            Target: !Sub "integrations/${ApiGatewayV2Integration}"
+
+    ValidateSubmissionRoute:
+        Type: "AWS::ApiGatewayV2::Route"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ApiKeyRequired: false
+            AuthorizationType: "NONE"
+            RouteKey: "POST /ValidateSubmissionRoute"
+            Target: !Sub "integrations/${ApiGatewayV2Integration5}"
+
+    ApiGatewayV2Integration:
+        Type: "AWS::ApiGatewayV2::Integration"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ConnectionType: "INTERNET"
+            IntegrationMethod: "GET"
+            IntegrationType: "AWS_PROXY"
+            IntegrationUri: !GetAtt PresignedURLFunction.Arn
+            TimeoutInMillis: 30000
+            PayloadFormatVersion: "2.0"
+
+    ApiGatewayV2Integration3:
+        Type: "AWS::ApiGatewayV2::Integration"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ConnectionType: "INTERNET"
+            IntegrationMethod: "POST"
+            IntegrationType: "AWS_PROXY"
+            IntegrationUri: !GetAtt ProcessForumsLambda.Arn 
+            TimeoutInMillis: 30000
+            PayloadFormatVersion: "2.0"
+
+    ApiGatewayV2Integration5:
+        Type: "AWS::ApiGatewayV2::Integration"
+        Properties:
+            ApiId: !Ref ForumWebsiteBFF
+            ConnectionType: "INTERNET"
+            IntegrationMethod: "POST"
+            IntegrationType: "AWS_PROXY"
+            IntegrationUri: !GetAtt VerifyReCAPTCHATokenLambda.Arn
+            TimeoutInMillis: 30000
+            PayloadFormatVersion: "2.0"
+    PresignedURLPermission:
+        Type: AWS::Lambda::Permission
+        Properties:
+          FunctionName: !Ref PresignedURLFunction
+          Action: lambda:InvokeFunction
+          Principal: apigateway.amazonaws.com
+          SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/GET/GetPresignedURLRoute
+
+    ProcessForumsPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref ProcessForumsLambda
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/POST/processForumsToRDSRoute
+
+    VerifyRecaptchaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref VerifyReCAPTCHATokenLambda
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ForumWebsiteBFF}/*/POST/ValidateSubmissionRoute
+
+
+Outputs:
+    ApiUrl:
+      Value: !Sub "https://${ForumWebsiteBFF}.execute-api.${AWS::Region}.amazonaws.com"

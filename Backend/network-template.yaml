@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ""
+Parameters:
+    Issue:
+      Type: String
+      Default: "TEST"
+Resources:
+  CSForumVPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "172.31.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: "default"
+  CSForumVPCSubnet:
+          Type: "AWS::EC2::Subnet"
+          Properties:
+              AvailabilityZone: !Sub "${AWS::Region}a"
+              CidrBlock: "172.31.0.0/20"
+              VpcId: !Ref CSForumVPC
+              MapPublicIpOnLaunch: true
+
+  CSForumVPCSubnet2:
+          Type: "AWS::EC2::Subnet"
+          Properties:
+              AvailabilityZone: !Sub "${AWS::Region}c"
+              CidrBlock: "172.31.32.0/20"
+              VpcId: !Ref CSForumVPC
+              MapPublicIpOnLaunch: true
+
+  CSForumVPCSubnet3:
+          Type: "AWS::EC2::Subnet"
+          Properties:
+              AvailabilityZone: !Sub "${AWS::Region}b"
+              CidrBlock: "172.31.16.0/20"
+              VpcId: !Ref CSForumVPC
+              MapPublicIpOnLaunch: true
+
+  CSDatabaseSecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "Security Group for the prod-cs-database. Permissions to connect for EC2, Lambda"
+            GroupName: !Sub "cs-database-sg-${Issue}"
+            VpcId: !Ref CSForumVPC
+            SecurityGroupIngress: 
+              - 
+                SourceSecurityGroupId: !Ref CSDatabaseEC2SecurityGroup
+                SourceSecurityGroupOwnerId: "783764573035"
+                FromPort: 3306
+                IpProtocol: "tcp"
+                ToPort: 3306
+              - 
+                SourceSecurityGroupId: !Ref CSDatabaseLambdaSecurityGroup
+                SourceSecurityGroupOwnerId: "783764573035"
+                FromPort: 3306
+                IpProtocol: "tcp"
+                ToPort: 3306
+              - 
+                CidrIp: "18.223.74.85/32"
+                IpProtocol: "tcp"
+                FromPort: 3306
+                ToPort: 3306
+              -
+                CidrIp: "3.131.104.27/32"
+                IpProtocol: "tcp"
+                FromPort: 3306
+                ToPort: 3306
+
+  CSDatabaseEC2SecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "EC2 Security Group to connect to cs-database"
+            GroupName: !Sub "cs-database-ec2-sg-${Issue}"
+            VpcId: !Ref CSForumVPC
+            SecurityGroupEgress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                IpProtocol: "-1"
+
+  CSDatabaseLambdaSecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "Allows lambdas to connect to cs-database"
+            GroupName: !Sub "lambda-cs-database-sg-${Issue}"
+            VpcId: !Ref CSForumVPC
+            SecurityGroupEgress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                IpProtocol: "-1"
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref CSForumVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public route table (like the default VPC's main route table)
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref CSForumVPC
+
+  # Default route to the internet
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Associate ALL your subnets with the public route table
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CSForumVPCSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CSForumVPCSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetRouteTableAssociation3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CSForumVPCSubnet3
+      RouteTableId: !Ref PublicRouteTable
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  
+  RDSSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnets for RDS"
+      SubnetIds:
+        - !Ref CSForumVPCSubnet
+        - !Ref CSForumVPCSubnet2
+        - !Ref CSForumVPCSubnet3
+
+
+Outputs:
+  VPCId:
+    Value: !Ref CSForumVPC
+    Export:
+      Name: !Sub "${AWS::StackName}-CSForumVPC"
+
+  Subnet1:
+    Value: !Ref CSForumVPCSubnet
+    Export:
+      Name: !Sub "${AWS::StackName}-Subnet1"
+
+  Subnet2:
+    Value: !Ref CSForumVPCSubnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-Subnet2"
+
+  Subnet3:
+    Value: !Ref CSForumVPCSubnet3
+    Export:
+      Name: !Sub "${AWS::StackName}-Subnet3"
+
+  LambdaSecurityGroup:
+    Value: !Ref CSDatabaseLambdaSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-LambdaSG"
+
+  DatabaseSecurityGroup:
+    Value: !Ref CSDatabaseSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-DatabaseSG"
+
+  RDSSubnetGroup:
+    Description: "Subnet Group for the RDS instance"
+    Value: !Ref RDSSubnetGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-RDSSubnetGroup"

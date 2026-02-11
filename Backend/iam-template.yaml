@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ""
+Parameters:
+    Issue:
+      Type: String
+      Default: "TEST"
+Resources:
+  CSDatabaseEC2Role:
+      Type: "AWS::IAM::Role"
+      Properties:
+          Path: "/"
+          RoleName: !Sub "CS-Database-EC2-Role-${Issue}"
+          AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+          MaxSessionDuration: 3600
+          ManagedPolicyArns: 
+            - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          Description: "Allows EC2 instances to call AWS services on your behalf."
+
+  CSLambdaRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+          Path: "/service-role/"
+          RoleName: !Sub "CS-LambdaRole-${Issue}"
+          AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AWSLambdaVPCAccessExecutionRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+          MaxSessionDuration: 3600
+          ManagedPolicyArns: 
+            - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+
+Outputs:
+  CSLambdaRoleArn:
+    Description: "ARN for the Lambda execution role"
+    Value: !Ref CSLambdaRole
+    Export:
+      Name: !Sub "${AWS::StackName}-LambdaRole"
+
+  CSDatabaseEC2RoleArn:
+    Description: "ARN for the EC2 execution role"
+    Value: !Ref CSDatabaseEC2Role
+    Export:
+      Name: !Sub "${AWS::StackName}-EC2Role"

@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ""
+Parameters:
+    Issue:
+      Type: String
+      Default: "TEST"
+Resources:
+  CSDatabaseEC2Instance:
+          Type: "AWS::EC2::Instance"
+          Properties:
+              ImageId: "ami-025ca978d4c1d9825"
+              InstanceType: "t2.micro"
+              Tenancy: "default"
+              SubnetId: !ImportValue cs-network-stack-Subnet1
+              EbsOptimized: false
+              SecurityGroupIds: 
+                - !ImportValue cs-network-stack-DatabaseSG
+              SourceDestCheck: true
+              BlockDeviceMappings: 
+                - 
+                  DeviceName: "/dev/xvda"
+                  Ebs: 
+                      Encrypted: false
+                      VolumeSize: 8
+                      VolumeType: "gp3"
+                      DeleteOnTermination: true
+              IamInstanceProfile: !Ref EC2InstanceProfile
+              Tags: 
+                - 
+                  Key: "Name"
+                  Value: !Sub "CS-Database-EC2-Instance-${Issue}"
+              HibernationOptions: 
+                  Configured: false
+              EnclaveOptions: 
+                  Enabled: false
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !ImportValue cs-iam-stack-EC2Role
+
+  RDSDBInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+        DBInstanceIdentifier: !Sub "prod-cs-database-instance-${Issue}"
+        AllocatedStorage: 20
+        DBInstanceClass: "db.t3.micro"
+        Engine: "mysql"
+        DBName: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:DB_NAME}}"
+        MasterUsername: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:username}}"
+        MasterUserPassword: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:password}}"
+        PreferredBackupWindow: "09:24-09:54"
+        BackupRetentionPeriod: 7
+        PreferredMaintenanceWindow: "thu:03:06-thu:03:36"
+        MultiAZ: false
+        EngineVersion: "8.0.42"
+        AutoMinorVersionUpgrade: true
+        LicenseModel: "general-public-license"
+        PubliclyAccessible: true
+        StorageType: "gp2"
+        Port: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:port}}"
+        StorageEncrypted: true
+        KmsKeyId: !Sub "arn:aws:kms:${AWS::Region}:783764573035:key/8c39fe8d-8451-41b7-ad04-938fd318ca2d"
+        CopyTagsToSnapshot: true
+        MonitoringInterval: 0
+        EnableIAMDatabaseAuthentication: false
+        EnablePerformanceInsights: false
+        DeletionProtection: false
+        DBSubnetGroupName: !ImportValue cs-network-stack-RDSSubnetGroup
+        VPCSecurityGroups: 
+          - !ImportValue cs-network-stack-DatabaseSG
+        DBParameterGroupName: "default.mysql8.0"
+        OptionGroupName: "default:mysql-8-0"
+        EnableCloudwatchLogsExports: 
+          - "audit"
+          - "error"
+          - "general"
+        CACertificateIdentifier: "rds-ca-rsa2048-g1"
+
+  DynamoDBTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+          AttributeDefinitions: 
+            - 
+              AttributeName: "ip"
+              AttributeType: "S"
+          BillingMode: "PAY_PER_REQUEST"
+          TableName: !Sub "FormIPLimitTable-${Issue}"
+          KeySchema: 
+            - 
+              AttributeName: "ip"
+              KeyType: "HASH"
+          TimeToLiveSpecification: 
+              AttributeName: "ttl"
+              Enabled: true
+
+Outputs:
+  RDSInstanceEndpoint:
+    Description: "The connection endpoint for the RDS MySQL instance"
+    Value: !GetAtt RDSDBInstance.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-RDSEndpoint"
+
+  DynamoDBTableName:
+    Description: "Name of the IP Limit DynamoDB table"
+    Value: !Ref DynamoDBTable
+    Export:
+      Name: !Sub "${AWS::StackName}-DynamoTableName"
+
+  EC2InstancePublicIp:
+    Description: "Public IP of the EC2 Database Admin instance"
+    Value: !GetAtt CSDatabaseEC2Instance.PublicIp
+    Export:
+      Name: !Sub "${AWS::StackName}-EC2PublicIp"
