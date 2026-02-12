@@ -26,6 +26,7 @@ Resources:
           MaxSessionDuration: 3600
           ManagedPolicyArns: 
             - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+            - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 
 Outputs:
   CSLambdaRoleArn:
