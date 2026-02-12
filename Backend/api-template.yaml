@@ -18,11 +18,8 @@ Resources:
                     RDS_PROXY_HOST: !ImportValue cs-data-stack-RDSEndpoint
             FunctionName: !Sub "ProcessForumsLambda-${Issue}"
             Handler: "app.lambda_handler"
-            Architectures: 
-              - "x86_64"
             CodeUri: src/ProcessForumsLambda/
-            MemorySize: 128
-            Role: !ImportValue cs-iam-stack-LambdaRole
+            Role: !ImportValue cs-iam-stack-LambdaRoleArn
             Runtime: "python3.12"
             Timeout: 120
             VpcConfig: 
@@ -32,8 +29,6 @@ Resources:
                   - !ImportValue cs-network-stack-Subnet3
                 SecurityGroupIds: 
                   - !ImportValue cs-network-stack-DatabaseSG
-            EphemeralStorage: 
-                Size: 512
 
     VerifyReCAPTCHATokenLambda:
         Type: AWS::Serverless::Function
@@ -46,9 +41,9 @@ Resources:
             FunctionName: !Sub "VerifyReCAPTCHAToken-${Issue}"
             Handler: "index.handler"
             CodeUri: src/VerifyReCAPTCHATokenLambda/
-            Role: !ImportValue cs-iam-stack-LambdaRole
+            Role: !ImportValue cs-iam-stack-LambdaRoleArn
             Runtime: "nodejs22.x"
-            Timeout: 3
+            Timeout: 20
 
     PresignedURLFunction:
         Type: AWS::Serverless::Function
@@ -59,34 +54,26 @@ Resources:
                     BUCKET_NAME: "processforms-s3bucket"
             FunctionName: !Sub "PresignedURLFunction-${Issue}"
             Handler: "app.lambda_handler"
-            Architectures: 
-              - "arm64"
             CodeUri: src/PresignedURLFunction/
-            MemorySize: 128
-            Role: !ImportValue cs-iam-stack-LambdaRole
+            Role: !ImportValue cs-iam-stack-LambdaRoleArn
             Runtime: "python3.13"
-            Timeout: 3
-            EphemeralStorage: 
-                Size: 512
+            Timeout: 20
 
     ForumWebsiteBFF:
         Type: "AWS::ApiGatewayV2::Api"
         Properties:
             Name: !Sub "ForumWebsiteBFF-dev"
             ProtocolType: "HTTP"
-            RouteSelectionExpression: "$request.method $request.path"
             CorsConfiguration: 
                 AllowCredentials: false
-                AllowMethods: 
+                AllowMethods:
                   - "POST"
-                AllowOrigins: 
-                  - "https://main.d1y0l8029swz9t.amplifyapp.com"
+                AllowOrigins:
+                  - "https://main.d1y0l8029swz9t.amplifyapp.com" # does this change when re-deploy?
                 AllowHeaders:
                     - "Content-Type"
-                    - "*"
-                MaxAge: 1000
-            DisableExecuteApiEndpoint: false
-
+                    - "*" # CHANGE THIS, VERY IMPORTANT TO CAHNGE
+                
     ApiGatewayV2Stage:
         Type: "AWS::ApiGatewayV2::Stage"
         Properties:
@@ -132,7 +119,6 @@ Resources:
         Type: "AWS::ApiGatewayV2::Integration"
         Properties:
             ApiId: !Ref ForumWebsiteBFF
-            ConnectionType: "INTERNET"
             IntegrationMethod: "GET"
             IntegrationType: "AWS_PROXY"
             IntegrationUri: !GetAtt PresignedURLFunction.Arn
@@ -143,7 +129,6 @@ Resources:
         Type: "AWS::ApiGatewayV2::Integration"
         Properties:
             ApiId: !Ref ForumWebsiteBFF
-            ConnectionType: "INTERNET"
             IntegrationMethod: "POST"
             IntegrationType: "AWS_PROXY"
             IntegrationUri: !GetAtt ProcessForumsLambda.Arn 
@@ -160,6 +145,7 @@ Resources:
             IntegrationUri: !GetAtt VerifyReCAPTCHATokenLambda.Arn
             TimeoutInMillis: 30000
             PayloadFormatVersion: "2.0"
+
     PresignedURLPermission:
         Type: AWS::Lambda::Permission
         Properties:

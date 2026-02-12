@@ -30,12 +30,12 @@ Resources:
 Outputs:
   CSLambdaRoleArn:
     Description: "ARN for the Lambda execution role"
-    Value: !Ref CSLambdaRole
+    Value: !GetAtt CSLambdaRole.Arn
     Export:
-      Name: !Sub "${AWS::StackName}-LambdaRole"
+      Name: !Sub "${AWS::StackName}-LambdaRoleArn"
 
-  CSDatabaseEC2RoleArn:
-    Description: "ARN for the EC2 execution role"
+  CSDatabaseEC2Role:
+    Description: "Role Name for the EC2 execution role"
     Value: !Ref CSDatabaseEC2Role
     Export:
       Name: !Sub "${AWS::StackName}-EC2Role"
