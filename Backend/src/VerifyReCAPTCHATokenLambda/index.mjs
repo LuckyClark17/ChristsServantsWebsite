@@ -2,7 +2,7 @@ import { DynamoDBClient, GetItemCommand, PutItemCommand } from '@aws-sdk/client-
 const dynamoClient = new DynamoDBClient();
 const RATE_LIMIT = 5;
 const WINDOW_SECONDS = 300;
-const TABLE_NAME = "FormIPLimitTable";
+const TABLE_NAME = process.env.table_name;
 
 export const handler = async (event) => {
   const ip = event.requestContext.http.sourceIp;
