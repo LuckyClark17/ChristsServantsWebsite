@@ -68,12 +68,12 @@ async function checkAndUpdateRateLimit(ip) {
     const getCommand = new GetItemCommand(
       {
         TableName: TABLE_NAME,
-        Key: { ip },
-      }
-    )
+        Key: { ip: {S: ip} }
+      },
+    );
     const getResult = await dynamoClient.send(getCommand);
 
-    const currentCount = getResult.Item?.count || 0;
+    const currentCount = getResult.Item?.count?.N || 0;
     console.log("Current IP Rate: " + currentCount);
     if (currentCount >= RATE_LIMIT) {
       console.log("IP Rate Limit Exceeded: " + ip);
@@ -83,9 +83,9 @@ async function checkAndUpdateRateLimit(ip) {
       {
         TableName: TABLE_NAME,
         Item: {
-          ip,
-          count: currentCount + 1,
-          ttl,
+          ip: {S: ip},
+          count: {N: (currentCount + 1).toString()}, //number in dynamoDB, but must pass as str
+          ttl: {N: ttl.toString()},
         }
       }
     )
@@ -95,6 +95,6 @@ async function checkAndUpdateRateLimit(ip) {
     return { blocked: false };
   } catch (error) {
     console.error("Rate limiting error:", { message: error.message, code: error.code, stack: error.stack });
-    return { blocked: false }; // Fail open if DynamoDB error occurs
+    return { blocked: true }; // Fail closed if DynamoDB error occurs || might change later
   }
 }
