@@ -28,7 +28,7 @@ Resources:
                   - !ImportValue cs-network-stack-Subnet2
                   - !ImportValue cs-network-stack-Subnet3
                 SecurityGroupIds: 
-                  - !ImportValue cs-network-stack-DatabaseSG
+                  - !ImportValue cs-network-stack-LambdaSG
 
     VerifyReCAPTCHATokenLambda:
         Type: AWS::Serverless::Function

@@ -15,7 +15,7 @@ Resources:
               SubnetId: !ImportValue cs-network-stack-Subnet1
               EbsOptimized: false
               SecurityGroupIds: 
-                - !ImportValue cs-network-stack-DatabaseSG
+                - !ImportValue cs-network-stack-EC2SG
               SourceDestCheck: true
               BlockDeviceMappings: 
                 - 

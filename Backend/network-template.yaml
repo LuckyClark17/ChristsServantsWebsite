@@ -171,6 +171,11 @@ Outputs:
     Value: !Ref CSDatabaseSecurityGroup
     Export:
       Name: !Sub "${AWS::StackName}-DatabaseSG"
+  
+  EC2SecurityGroup:
+    Value: !Ref CSDatabaseEC2SecurityGroup
+    Export: 
+      Name: !Sub "${AWS::StackName}-EC2SG"
 
   RDSSubnetGroup:
     Description: "Subnet Group for the RDS instance"
