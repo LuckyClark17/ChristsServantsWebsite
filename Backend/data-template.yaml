@@ -46,7 +46,7 @@ Resources:
     Properties:
         DBInstanceIdentifier: !Sub "prod-cs-database-instance-${Issue}"
         AllocatedStorage: 20
-        DBInstanceClass: "db.t3.micro"
+        DBInstanceClass: "db.t4g.micro"
         Engine: "mysql"
         DBName: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:DB_NAME}}"
         MasterUsername: "{{resolve:secretsmanager:christsservants/db-cred:SecretString:username}}"

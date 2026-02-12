@@ -3,7 +3,7 @@ frontend:
   phases:
     build:
       commands: [
-        "API_URL=$(aws cloudformation describe-stacks --stack-name website-stack-v1 --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text)",
+        "API_URL=$(aws cloudformation describe-stacks --stack-name cs-api-stack --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text)",
         "sed -i \"s|PLACEHOLDER_URL|$API_URL|g\" ForumWebsite/index.html"
       ]
   artifacts:
