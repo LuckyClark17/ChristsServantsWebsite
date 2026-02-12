@@ -73,7 +73,7 @@ async function checkAndUpdateRateLimit(ip) {
     );
     const getResult = await dynamoClient.send(getCommand);
 
-    const currentCount = getResult.Item?.count?.N || 0;
+    const currentCount = parseInt(getResult.Item?.count?.N) || 0;
     console.log("Current IP Rate: " + currentCount);
     if (currentCount >= RATE_LIMIT) {
       console.log("IP Rate Limit Exceeded: " + ip);
