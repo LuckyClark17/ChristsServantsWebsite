@@ -1,5 +1,5 @@
-import AWS from "aws-sdk";
-const ddb = new AWS.DynamoDB.DocumentClient();
+import { DynamoDBClient, GetItemCommand, PutItemCommand } from '@aws-sdk/client-dynamodb'
+const dynamoClient = new DynamoDBClient();
 const RATE_LIMIT = 5;
 const WINDOW_SECONDS = 300;
 const TABLE_NAME = "FormIPLimitTable";
@@ -23,21 +23,21 @@ export const handler = async (event) => {
 
   console.log("Verifying reCAPTCHA token-" + token);
   const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `secret=${secret_key}&response=${token}`
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `secret=${secret_key}&response=${token}`
   });
 
   if (!response.ok) {
     const responseBody = await response.text();
-    console.error('reCAPTCHA verification failed:', {status: response.status, body: responseBody});
+    console.error('reCAPTCHA verification failed:', { status: response.status, body: responseBody });
     return {
       statusCode: response.status,
       body: JSON.stringify({
-          success: false,
-          errorMessage: `Failed to verify reCAPTCHA.`
+        success: false,
+        errorMessage: `Failed to verify reCAPTCHA.`
       })
-  };
+    };
   }
 
   const data = await response.json();
@@ -46,15 +46,15 @@ export const handler = async (event) => {
     return {
       statusCode: response.status,
       body: JSON.stringify({
-          success: false,
-          errorMessage: `reCAPTCHA verification failed. success: ${data.success}, error: ${data['error-codes']}`
+        success: false,
+        errorMessage: `reCAPTCHA verification failed. success: ${data.success}, error: ${data['error-codes']}`
       })
     };
   }
   console.log("reCAPTCHA verification succeeded! Data:" + JSON.stringify(data))
   return {
-      statusCode: response.status,
-      body: JSON.stringify(data)
+    statusCode: response.status,
+    body: JSON.stringify(data)
   }
 };
 
@@ -65,32 +65,36 @@ async function checkAndUpdateRateLimit(ip) {
 
   console.log(`Checking ${TABLE_NAME} Table for IP: ${ip}`);
   try {
-    const result = await ddb.get({
-      TableName: TABLE_NAME,
-      Key: { ip },
-    }).promise();
+    const getCommand = new GetItemCommand(
+      {
+        TableName: TABLE_NAME,
+        Key: { ip },
+      }
+    )
+    const getResult = await dynamoClient.send(getCommand);
 
-    const currentCount = result.Item?.count || 0;
+    const currentCount = getResult.Item?.count || 0;
     console.log("Current IP Rate: " + currentCount);
     if (currentCount >= RATE_LIMIT) {
       console.log("IP Rate Limit Exceeded: " + ip);
       return { blocked: true };
     }
-
-    await ddb.put({
-      TableName: TABLE_NAME,
-      Item: {
-        ip,
-        count: currentCount + 1,
-        ttl,
-      },
-    }).promise();
-    console.log(`IP Rate Limit Updated to ${currentCount+1}`);
-    
+    const putCommand = new PutItemCommand(
+      {
+        TableName: TABLE_NAME,
+        Item: {
+          ip,
+          count: currentCount + 1,
+          ttl,
+        }
+      }
+    )
+    await dynamoClient.send(putCommand);
+    console.log(`IP Rate Limit Updated to ${currentCount + 1}`);
 
     return { blocked: false };
   } catch (error) {
-    console.error("Rate limiting error:", {message: error.message, code: error.code, stack: error.stack});
+    console.error("Rate limiting error:", { message: error.message, code: error.code, stack: error.stack });
     return { blocked: false }; // Fail open if DynamoDB error occurs
   }
 }
